@@ -39,10 +39,10 @@
 #define MIN_NEIGHBOURS  5 
 #define FACE_MIN_SIZE   40
 
-/*  A buffer length for converting number of faces to string
- *  should not be changed unless the number of deteced faces
- *  can be greater than 999 :) */
-#define NUM_FACES_BUF   3
+/*
+ * A buffer length for converting a range to string
+ */
+#define NUM_FACES_BUF  10 
 
 /*  Marging for displaying the face number */
 #define FACE_NUM_MARGIN 5
@@ -56,11 +56,13 @@
 /* Number of size:disance measurments */
 #define NUM_MEASURMENTS 23
 
+
 struct distance_range
 {
-    int min;
-    int max;
+    int min; /*  minimal object distance from the camera */
+    int max; /*  maximal object distance  */
 };
+
 
 int distance_cm[NUM_MEASURMENTS] = {
      30, 40, 50, 60, 70, 80, 90,
@@ -98,11 +100,11 @@ bool no_gui = false;
 
 void check_cli(int argc,char *argv[]);
 void usage(char *argv_0);
-void write_to_file(FILE* out_fp, float *distances,int n);
+void write_to_file(FILE* out_fp, distance_range *distances,int n);
 
 CvSeq* detect_faces(IplImage *img);
-int get_distances(CvSeq* faces, float *distances);
-float calculate_distance(int width, int height );
+int get_distances(CvSeq* faces, distance_range *distances);
+distance_range calculate_distance(int width, int height );
 
 void select_faces(IplImage *img, CvSeq* faces);
 void draw_distances(IplImage *img, CvSeq* faces);
@@ -117,8 +119,10 @@ int main(int argc, char **argv)
     
     char  key_pressed = 0;
     int   prev_faces  = 0;
-    float distances[MAX_FACES];
     int n;
+
+    distance_range distances[MAX_FACES];
+    
 
     check_cli(argc,argv);
 
@@ -183,7 +187,6 @@ int main(int argc, char **argv)
          */
         n = get_distances(faces, distances);
         write_to_file(out_fp, distances, n);
-        
         /*
          * Draw the result on the screen
          */
@@ -262,13 +265,13 @@ void usage(char *argv_0)
 /*
  * Write the distances to the beginning of the output file
  */
-void write_to_file(FILE* out_fp, float *distances,int n)
+void write_to_file(FILE* out_fp, distance_range *distances,int n)
 {
     int i=0;
 
     fseek(out_fp, 0, SEEK_SET);
     for(; i<n; i++)
-        fprintf(out_fp, "%d\t%f\n",i,distances[i]);
+        fprintf(out_fp, "%d\t%d-%d\n",i,distances[i].min,distances[i].max);
 }
 
 
@@ -295,7 +298,7 @@ CvSeq* detect_faces(IplImage *img)
     return faces;
 }
 
-int get_distances(CvSeq* faces, float *distances)
+int get_distances(CvSeq* faces, distance_range *distances)
 {
     int i;
     int end;
@@ -318,23 +321,39 @@ int get_distances(CvSeq* faces, float *distances)
  * Given width and height of the window sorrouding
  * a face, estimate its distance from the camera
  */
-float calculate_distance( int width, int height )
+distance_range calculate_distance( int width, int height )
 {
-    int   i   = 0;
+    int i;
+    int margin;
+    distance_range range;
     
-    if( width > size_pixel[0])
-        return 0.0;
-    
-    if( width < size_pixel[NUM_MEASURMENTS])
-        return 400.0;
-
-    for(; i<= NUM_MEASURMENTS-1; i++)
+    /* if window size is larger than maximal in the table */
+    if( width >= size_pixel[0])
     {
-        if(width < size_pixel[i] && width > size_pixel[i+1])
-            break;
+        range.min = 0;
+        range.max = distance_cm[0];
+    }
+   
+    /* if window size if smaller than minimal in the table */
+    else if( width <= size_pixel[NUM_MEASURMENTS])
+    {
+        range.min = range.max = distance_cm[NUM_MEASURMENTS];
     }
 
-    return (float)distance_cm[i];
+    else{
+        for(i = 1; i<= NUM_MEASURMENTS-1; i++)
+        {
+            if(width < size_pixel[i] && width > size_pixel[i+1])
+            {
+                margin = distance_cm[i+1] - distance_cm[i]/2;
+                range.min = distance_cm[i] - margin;
+                range.max = distance_cm[i+1] + margin;
+                break;
+            }
+        }
+    }
+
+    return range;
 }
 
 /*
@@ -368,6 +387,7 @@ void draw_distances(IplImage *img, CvSeq* faces)
 {
     /* Point for distance list */
     CvPoint pt1;
+    distance_range range;
 
     int i;
     char buf[NUM_FACES_BUF]; 
@@ -389,11 +409,12 @@ void draw_distances(IplImage *img, CvSeq* faces)
 
         pt1.y += 15;
         cvPutText( img, buf, pt1, &font, CV_RGB(255, 0, 0) );
-        
-         sprintf(buf,"%f", calculate_distance( r->width, r->height ) );
-         pt1.x += 50;
-         cvPutText( img, buf, pt1, &font, CV_RGB(255, 0, 0 ) );
-         pt1.x -= 50;
+       
+        range = calculate_distance(r->width, r->height);
+        sprintf(buf,"~(%d : %d)", range.min, range.max);
+        pt1.x += 50;
+        cvPutText( img, buf, pt1, &font, CV_RGB(255, 0, 0 ) );
+        pt1.x -= 50;
 
     }
 }
