@@ -50,6 +50,12 @@
 /* Margin for displaying face distances */
 #define DISTANCE_LIST_MARGIN 10
 
+/* vertical distance between rows */
+#define ROW_VERTICAL 15
+
+/*  horizontal distance between colums */
+#define COL_HORIZONTAL 50
+
 /* Maximal number of faces processed by the algorithm */
 #define MAX_FACES   10
 
@@ -377,7 +383,6 @@ void select_faces(IplImage *img, CvSeq* faces)
 
         cvRectangle( img, pt1, pt2, CV_RGB(0,255,0), 3, 8, 0 );
     }
-
 }
 
 /*
@@ -407,14 +412,14 @@ void draw_distances(IplImage *img, CvSeq* faces)
         /*  Face number */
         sprintf(buf,"%d",i);
 
-        pt1.y += 15;
+        pt1.y += ROW_VERTICAL;
         cvPutText( img, buf, pt1, &font, CV_RGB(255, 0, 0) );
        
         range = calculate_distance(r->width, r->height);
         sprintf(buf,"~(%d : %d)", range.min, range.max);
-        pt1.x += 50;
+        pt1.x += COL_HORIZONTAL;
         cvPutText( img, buf, pt1, &font, CV_RGB(255, 0, 0 ) );
-        pt1.x -= 50;
+        pt1.x -= COL_HORIZONTAL;
 
     }
 }
