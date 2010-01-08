@@ -42,7 +42,7 @@
 /*
  * A buffer length for converting a range to string
  */
-#define NUM_FACES_BUF  10 
+#define NUM_FACES_BUF  13 
 
 /*  Marging for displaying the face number */
 #define FACE_NUM_MARGIN 5
