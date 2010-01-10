@@ -80,6 +80,12 @@ int distance_cm[NUM_MEASURMENTS] = {
     400
 };
 
+/*
+ * Those values depend on the camera's resolution itd. If you are not
+ * using A4-Tech pk835 please measure them with your camera.
+ * To do so you need to check the width of the face selection window for 
+ * each distance, found in the distance_cm[].
+ */
 int size_pixel[NUM_MEASURMENTS]={
     403,330,278,241,210,195,177,
     158,144,132,121,115,103, 99,
