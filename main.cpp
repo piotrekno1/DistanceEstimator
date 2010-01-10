@@ -31,7 +31,7 @@
 #define CLOSE_BUTTON    27
 
 /* Frame delay */
-#define FRAME_DELAY     20
+#define FRAME_DELAY     100
 
 /* cvHaarDetectObjects parameters, described in detail
  * in the openCV documentation */
@@ -349,9 +349,9 @@ distance_range calculate_distance( int width, int height )
     else{
         for(i = 1; i<= NUM_MEASURMENTS-1; i++)
         {
-            if(width < size_pixel[i] && width > size_pixel[i+1])
+            if(width <= size_pixel[i] && width >= size_pixel[i+1])
             {
-                margin = distance_cm[i+1] - distance_cm[i]/2;
+                margin = (distance_cm[i+1] - distance_cm[i])/2;
                 range.min = distance_cm[i] - margin;
                 range.max = distance_cm[i+1] + margin;
                 break;
