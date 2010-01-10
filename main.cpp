@@ -3,7 +3,8 @@
  * Internetowe Systemy Pomiarowe projekt zaliczeniowy. Estymacja odleglosci
  * glowy od kamery rejestrujacej.
  *
- * uzycie : detector --haar nazwa_pliku1 --out-file nazwa_pliku2[--no-gui]
+ * uzycie : detector --haar nazwa_pliku1 --out-file nazwa_pliku2 [--no-gui --fps
+ * num]
  */
 
 
@@ -30,14 +31,14 @@
 /*  Close the application when this kbd scan code is pressed */
 #define CLOSE_BUTTON    27
 
-/* Frame delay */
-#define FRAME_DELAY     100
+/* Minimal frame delay time */
+#define MIN_FRAME_DELAY 3
 
 /* cvHaarDetectObjects parameters, described in detail
  * in the openCV documentation */
 #define SCALE_FACTOR    1.1
-#define MIN_NEIGHBOURS  5 
-#define FACE_MIN_SIZE   40
+#define MIN_NEIGHBOURS  2 
+#define FACE_MIN_SIZE   55
 
 /*
  * A buffer length for converting a range to string
@@ -59,8 +60,10 @@
 /* Maximal number of faces processed by the algorithm */
 #define MAX_FACES   10
 
+#define DEFAULT_FPS 10
+
 /* Number of size:disance measurments */
-#define NUM_MEASURMENTS 23
+#define NUM_MEASURMENTS 22
 
 
 struct distance_range
@@ -103,6 +106,11 @@ char *output_file = NULL;
 /* Should the application work in the GUI mode? */
 bool no_gui = false;
 
+/* Number of frames per second handled by the app */
+int actual_fps = 0;
+
+/* Number of frames per second requested by the user */
+int wanted_fps = DEFAULT_FPS;
 
 void check_cli(int argc,char *argv[]);
 void usage(char *argv_0);
@@ -114,6 +122,7 @@ distance_range calculate_distance(int width, int height );
 
 void select_faces(IplImage *img, CvSeq* faces);
 void draw_distances(IplImage *img, CvSeq* faces);
+void draw_fps(IplImage *img,int fps);
 
 
 int main(int argc, char **argv)
@@ -125,7 +134,10 @@ int main(int argc, char **argv)
     
     char  key_pressed = 0;
     int   prev_faces  = 0;
+    int   delay_mili  = 0;
     int n;
+
+    clock_t start,end; /*  for measuring fps */
 
     distance_range distances[MAX_FACES];
     
@@ -168,6 +180,8 @@ int main(int argc, char **argv)
     
     while(1) 
     {
+        start = clock(); 
+
         frame = cvQueryFrame( capture );
         if(!frame)
             break;
@@ -193,6 +207,7 @@ int main(int argc, char **argv)
          */
         n = get_distances(faces, distances);
         write_to_file(out_fp, distances, n);
+
         /*
          * Draw the result on the screen
          */
@@ -200,16 +215,29 @@ int main(int argc, char **argv)
         {
             select_faces(frame, faces);
             draw_distances(frame, faces);
+            draw_fps(frame,actual_fps);
             cvShowImage(WINDOW_NAME, frame);
         }
 
+        /* 
+         * Count the delay time to get wanted number of FPS. Time of execution
+         * of previous functions has to be considered.
+         */
+        end = clock();
+        delay_mili = (1/(double)wanted_fps)*1000; 
+        delay_mili-= (int)(end-start)/(double)CLOCKS_PER_SEC*1000;
+        if(delay_mili < MIN_FRAME_DELAY )
+            delay_mili = MIN_FRAME_DELAY;
+        
         /*
          * Check if the close button was pressed
          */
-        key_pressed = cvWaitKey( FRAME_DELAY );
+        key_pressed = cvWaitKey( delay_mili ) ;
         if( key_pressed == CLOSE_BUTTON) 
             break;
         
+        end = clock();
+        actual_fps = (int)round(1/((double)(end-start)/(double)CLOCKS_PER_SEC)); 
     }
     
     cvReleaseCapture( & capture );
@@ -247,6 +275,16 @@ void check_cli(int argc,char *argv[])
                 printf("Setting ouput file to: %s\n", argv[i+1]);
                 output_file = argv[++i];
             }
+            else if(!strcmp(argv[i], "--fps"))
+            {
+                printf("Trying %s fps.\n", argv[i+1]);
+                wanted_fps = atoi(argv[++i]);
+                if(wanted_fps == 0)
+                {
+                    printf("Bad fps value. Setting to default.\n");
+                    wanted_fps = DEFAULT_FPS;
+                }
+            }
         }
     }
 
@@ -264,7 +302,7 @@ void check_cli(int argc,char *argv[])
 void usage(char *argv_0)
 {
     printf("\nUsage:\n");
-    printf("%s --haar filename1 --out-file filename2 [--no-gui]\n\n",
+    printf("%s --haar filename1 --out-file filename2 [--no-gui --fps num]\n\n",
             argv_0);
 }
 
@@ -288,7 +326,7 @@ void write_to_file(FILE* out_fp, distance_range *distances,int n)
  */
 CvSeq* detect_faces(IplImage *img)
 {
-    CvSeq *faces;
+    CvSeq *faces = NULL;
 
     /*  Clear storage from previous calculations */
     cvClearMemStorage( storage );
@@ -341,13 +379,13 @@ distance_range calculate_distance( int width, int height )
     }
    
     /* if window size if smaller than minimal in the table */
-    else if( width <= size_pixel[NUM_MEASURMENTS])
+    else if( width <= size_pixel[NUM_MEASURMENTS-1])
     {
-        range.min = range.max = distance_cm[NUM_MEASURMENTS];
+        range.min = range.max = distance_cm[NUM_MEASURMENTS-1];
     }
 
     else{
-        for(i = 1; i<= NUM_MEASURMENTS-1; i++)
+        for(i = 1; i< NUM_MEASURMENTS-1; i++)
         {
             if(width <= size_pixel[i] && width >= size_pixel[i+1])
             {
@@ -424,4 +462,13 @@ void draw_distances(IplImage *img, CvSeq* faces)
     }
 }
 
+void draw_fps(IplImage *img,int fps)
+{
+    CvPoint pt;
+    char buf[NUM_FACES_BUF];
+    sprintf(buf,"FPS: %d",fps);
+    pt.x = img->width-70;
+    pt.y = ROW_VERTICAL;
+    cvPutText( img, buf, pt, &font, CV_RGB(255, 0, 0) );    
+}
 
