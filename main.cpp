@@ -1,10 +1,15 @@
 /*
  * Piotr Duda, Jakub Matraszek
- * Internetowe Systemy Pomiarowe projekt zaliczeniowy. Estymacja odleglosci
- * glowy od kamery rejestrujacej.
+ * Face distance estimation with a single camera.
  *
- * uzycie : detector --haar nazwa_pliku1 --out-file nazwa_pliku2 [--no-gui --fps
- * num]
+ * The application works in stages:
+ * - at first the input image is taken from the camera
+ * - than the appplication tries to find all the faces on the image
+ * - processed faces are sorrounded with a green square
+ * - the applicaiton tries to find out how far is the face, by checking
+ *   its look up table.
+ *
+ * Usage: detector --haar file1 --out-file file2 [--no-gui --fps num]
  */
 
 
