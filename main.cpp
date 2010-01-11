@@ -9,7 +9,8 @@
  * - the applicaiton tries to find out how far is the face, by checking
  *   its look up table.
  *
- * Usage: detector --haar file1 --out-file file2 [--no-gui --fps num]
+ * Usage: detector --input-file camera_data --haar file1 
+ * --out-file file2 [--no-gui --fps num]
  */
 
 
@@ -313,7 +314,7 @@ void check_cli(int argc,char *argv[])
 void usage(char *argv_0)
 {
     printf("\nUsage:\n");
-    printf("%s --haar filename1 --out-file filename2 [--no-gui --fps num]\n\n",
+    printf("%s --in-file camera_data --haar filename1 --out-file filename2 [--no-gui --fps num]\n\n",
             argv_0);
 }
 
