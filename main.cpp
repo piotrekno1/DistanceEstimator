@@ -67,9 +67,6 @@
 
 #define DEFAULT_FPS 10
 
-/* Number of size:disance measurments */
-#define NUM_MEASURMENTS 22
-
 
 struct distance_range
 {
@@ -77,13 +74,7 @@ struct distance_range
     int max; /*  maximal object distance  */
 };
 
-
-int distance_cm[NUM_MEASURMENTS] = {
-     30, 40, 50, 60, 70, 80, 90,
-    100,110,120,130,140,150,160,
-    170,180,190,200,230,260,290,
-    400
-};
+int *distance_cm = NULL;
 
 /*
  * Those values depend on the camera's resolution itd. If you are not
@@ -91,13 +82,8 @@ int distance_cm[NUM_MEASURMENTS] = {
  * To do so you need to check the width of the face selection window for 
  * each distance, found in the distance_cm[].
  */
-int size_pixel[NUM_MEASURMENTS]={
-    403,330,278,241,210,195,177,
-    158,144,132,121,115,103, 99,
-     96, 90, 86, 82, 75, 63, 56,
-     51
-};
-
+int *size_pixel = NULL;
+int num_measurments=0;
 
 /* Memory pool for calculations */
 static CvMemStorage *storage = 0;
@@ -125,6 +111,9 @@ int wanted_fps = DEFAULT_FPS;
 
 void check_cli(int argc,char *argv[]);
 void usage(char *argv_0);
+
+bool load_camera_data(const char *filename);
+void free_camera_data(void);
 void write_to_file(FILE* out_fp, distance_range *distances,int n);
 
 CvSeq* detect_faces(IplImage *img);
@@ -257,6 +246,7 @@ int main(int argc, char **argv)
         cvDestroyWindow( WINDOW_NAME );
 
     fclose(out_fp);
+    free_camera_data();
 
     return 0;
 }
@@ -286,6 +276,15 @@ void check_cli(int argc,char *argv[])
                 printf("Setting ouput file to: %s\n", argv[i+1]);
                 output_file = argv[++i];
             }
+            else if(!strcmp(argv[i],"--in-file"))
+            {
+                printf("Input file:%s\n",argv[++i]);
+                if(!load_camera_data(argv[i]))
+                {
+                    printf("Error loading camera data!\n");
+                    exit(1);
+                }
+            }
             else if(!strcmp(argv[i], "--fps"))
             {
                 printf("Trying %s fps.\n", argv[i+1]);
@@ -299,7 +298,8 @@ void check_cli(int argc,char *argv[])
         }
     }
 
-    if(haar_data_file == NULL || output_file == NULL)
+    if(haar_data_file == NULL || output_file == NULL || distance_cm == NULL
+       || size_pixel == NULL)
     {
         usage(argv[0]);
         exit(-1);
@@ -315,6 +315,52 @@ void usage(char *argv_0)
     printf("\nUsage:\n");
     printf("%s --haar filename1 --out-file filename2 [--no-gui --fps num]\n\n",
             argv_0);
+}
+
+/*
+ * Load distance_cm and size_pixels form the input file
+ */
+bool load_camera_data(const char *filename)
+{
+    FILE *fp;
+    int i;
+
+    if((fp = fopen(filename,"r")) == NULL)
+    {
+        printf("Can't load %s. Closing application..\n", filename);
+        return false;
+    }
+
+    /*
+     * first read the number of measurments
+     */
+    fscanf(fp, "%d\n", &num_measurments);
+
+    if(num_measurments < 0)
+    {
+        printf("Bad input file. Bad number of masurments\n");
+        return false;
+    }
+
+    distance_cm = (int*)malloc(sizeof(int)*num_measurments);
+    size_pixel  = (int*)malloc(sizeof(int)*num_measurments);
+
+    if(distance_cm == NULL || size_pixel == NULL )
+        return false;
+
+    for(i=0; i < num_measurments; i++)
+        fscanf(fp, "%d-%d\n", &distance_cm[i], &size_pixel[i]);
+
+    return true;
+}
+
+/*
+ * Release the resources acquired with load_camera_data
+ */
+void free_camera_data(void)
+{
+    free(distance_cm);
+    free(size_pixel);
 }
 
 /*
@@ -390,13 +436,13 @@ distance_range calculate_distance( int width, int height )
     }
    
     /* if window size if smaller than minimal in the table */
-    else if( width <= size_pixel[NUM_MEASURMENTS-1])
+    else if( width <= size_pixel[ num_measurments - 1])
     {
-        range.min = range.max = distance_cm[NUM_MEASURMENTS-1];
+        range.min = range.max = distance_cm[num_measurments - 1];
     }
 
     else{
-        for(i = 1; i< NUM_MEASURMENTS-1; i++)
+        for(i = 1; i< num_measurments - 1; i++)
         {
             if(width <= size_pixel[i] && width >= size_pixel[i+1])
             {
